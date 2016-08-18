@@ -1,16 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using iTextSharp.text;
 using PdfSpliter.Properties;
-using PdfSharp.Pdf;
-using PdfSharp.Pdf.IO;
+using iTextSharp.text.pdf;
 
 namespace PdfSpliter
 {
@@ -30,10 +24,12 @@ namespace PdfSpliter
 
         private void fileselect_Click(object sender, EventArgs e)
         {
-            OpenFileDialog fdlg = new OpenFileDialog();
-            fdlg.InitialDirectory = Environment.CurrentDirectory;
-            fdlg.Filter = "Pdf Files (.pdf)|*.pdf|All Files (*.*)|*.*";
-            fdlg.RestoreDirectory = true;
+            OpenFileDialog fdlg = new OpenFileDialog
+            {
+                InitialDirectory = Environment.CurrentDirectory,
+                Filter = @"Pdf Files (.pdf)|*.pdf|All Files (*.*)|*.*",
+                RestoreDirectory = true
+            };
             DialogResult result = fdlg.ShowDialog(); // Show the dialog.
 
             if (result == DialogResult.OK) // Test result.
@@ -63,8 +59,8 @@ namespace PdfSpliter
             });
 
             await Task.Run(() => OutPutPdfJob(progress));
-            progressBar1.Text = "Succeed";
-            outputinformation.Text = "Succeed";
+            progressBar1.Text = @"Succeed";
+            outputinformation.Text = @"Succeed";
             Showoutput(outputfolder);
         }
 
@@ -72,20 +68,17 @@ namespace PdfSpliter
         {
             // Get a fresh copy of the sample PDF file
             var filename = inputfilepath.Text;
-
+            iTextSharp.text.pdf.PdfReader reader = null;
+            string name = Path.GetFileNameWithoutExtension(filename);
             if (string.IsNullOrEmpty(filename))
             {
-                outputinformation.Text = "input file name is empty";
+                outputinformation.Text = @"input file name is empty";
                 return;
-            }
-            // Open the file
-
-            PdfDocument inputDocument = PdfReader.Open(filename, PdfDocumentOpenMode.Import);
-            string name = Path.GetFileNameWithoutExtension(filename);
-            string outFolder = Path.GetDirectoryName(filename);
+            }        
+            string outFolder = System.IO.Path.GetDirectoryName(filename);
             if (outFolder != null)
             {
-                var outputFolder = Path.Combine(outFolder, name);
+                var outputFolder = System.IO.Path.Combine(outFolder, name);
                 if (!Directory.Exists(outputFolder))
                 {
                     Directory.CreateDirectory(outputFolder);
@@ -93,30 +86,39 @@ namespace PdfSpliter
 
                 try
                 {
-                    var total = inputDocument.PageCount;
-
-                    for (int idx = 0; idx < total; idx++)
+                    var total = GetPageCount(filename);
+                    reader = new PdfReader(filename);
+                    var sourceDocument = new Document(reader.GetPageSizeWithRotation(1));
+                    for (int idx = 1; idx <= total; idx++)
                     {
-                        // Create new document
-                        PdfDocument outputDocument = new PdfDocument();
-                        outputDocument.Options.CompressContentStreams = true;
-                        // Add the page and save it
-                        outputDocument.AddPage(inputDocument.Pages[idx]);
-                        var outputfilename = String.Format("{0} - Page {1}_tempfile.pdf", name, idx + 1);
+                        
+                        var outputfilename = $"{name} - Page {idx}_tempfile.pdf";
                         outputfilename = Path.Combine(outputFolder, outputfilename);
-                        outputDocument.Save(outputfilename);
-                        if (progress != null)
-                            progress.Report((idx + 1)*100/total);
+                        var pdfCopyProvider = new PdfCopy(sourceDocument,
+                            new FileStream(outputfilename, System.IO.FileMode.Create));
+                        sourceDocument.Open();
+                        var importedPage = pdfCopyProvider.GetImportedPage(reader, idx);
+                        pdfCopyProvider.AddPage(importedPage);
+                        progress?.Report((idx)*100/total);
                     }
+                    sourceDocument.Close();
+                    reader.Close();
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    outputinformation.Text = "Exception throws";
+                    Console.WriteLine(e.Message);
+                    outputinformation.Text = @"Exception throws";
                     throw;
                 }
 
                 outputfolder = outputFolder;
             }
+        }
+
+        private static int GetPageCount(string path)
+        {
+            PdfReader pdfReader = new PdfReader(path);
+            return pdfReader.NumberOfPages;
         }
 
         private static void Showoutput(string outputFolder)
