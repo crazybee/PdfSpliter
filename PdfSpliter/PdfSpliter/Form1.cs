@@ -21,7 +21,6 @@ namespace PdfSpliter
         private void Form1_Load(object sender, EventArgs e)
         {
         }
-
         private void fileselect_Click(object sender, EventArgs e)
         {
             OpenFileDialog fdlg = new OpenFileDialog
@@ -68,17 +67,17 @@ namespace PdfSpliter
         {
             // Get a fresh copy of the sample PDF file
             var filename = inputfilepath.Text;
-            iTextSharp.text.pdf.PdfReader reader = null;
+            PdfReader reader = null;
             string name = Path.GetFileNameWithoutExtension(filename);
             if (string.IsNullOrEmpty(filename))
             {
                 outputinformation.Text = @"input file name is empty";
                 return;
             }        
-            string outFolder = System.IO.Path.GetDirectoryName(filename);
+            string outFolder = Path.GetDirectoryName(filename);
             if (outFolder != null)
             {
-                var outputFolder = System.IO.Path.Combine(outFolder, name);
+                var outputFolder = Path.Combine(outFolder, name);
                 if (!Directory.Exists(outputFolder))
                 {
                     Directory.CreateDirectory(outputFolder);
@@ -88,6 +87,7 @@ namespace PdfSpliter
                 {
                     var total = GetPageCount(filename);
                     reader = new PdfReader(filename);
+                    reader.RemoveUnusedObjects();
                     var sourceDocument = new Document(reader.GetPageSizeWithRotation(1));
                     for (int idx = 1; idx <= total; idx++)
                     {
