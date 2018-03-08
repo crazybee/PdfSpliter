@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using iTextSharp.text;
@@ -73,7 +75,7 @@ namespace PdfSpliter
             {
                 outputinformation.Text = @"input file name is empty";
                 return;
-            }        
+            }
             string outFolder = Path.GetDirectoryName(filename);
             if (outFolder != null)
             {
@@ -87,11 +89,17 @@ namespace PdfSpliter
                 {
                     var total = GetPageCount(filename);
                     reader = new PdfReader(filename);
+                    reader.RemoveUsageRights();
                     reader.RemoveUnusedObjects();
+                    reader.Tampered = true;
+                    if (reader.IsEncrypted())
+                    {
+                        reader = unlockPdf(reader);
+                    }
                     var sourceDocument = new Document(reader.GetPageSizeWithRotation(1));
                     for (int idx = 1; idx <= total; idx++)
                     {
-                        
+
                         var outputfilename = $"{name} - Page {idx}_tempfile.pdf";
                         outputfilename = Path.Combine(outputFolder, outputfilename);
                         var pdfCopyProvider = new PdfCopy(sourceDocument,
@@ -99,7 +107,7 @@ namespace PdfSpliter
                         sourceDocument.Open();
                         var importedPage = pdfCopyProvider.GetImportedPage(reader, idx);
                         pdfCopyProvider.AddPage(importedPage);
-                        progress?.Report((idx)*100/total);
+                        progress?.Report((idx) * 100 / total);
                     }
                     sourceDocument.Close();
                     reader.Close();
@@ -128,9 +136,28 @@ namespace PdfSpliter
             outputDialog.ShowDialog();
         }
 
-        private void progressBar1_Click(object sender, EventArgs e)
+        //private void progressBar1_Click(object sender, EventArgs e)
+        //{
+        //}
+        private static PdfReader unlockPdf(PdfReader reader)
         {
+            if (reader == null)
+                return reader;
+            try
+            {
+                //var propertyInfo = reader.GetType().GetProperty("encrypted", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                //propertyInfo.SetValue(reader, false, null);
+                FieldInfo info = reader.GetType().GetTypeInfo().GetField("unethicalreading");
+                info.SetValue(reader, true);
+
+            }
+            catch (Exception e)
+            { // ignore 
+                Console.WriteLine(e.Message);
+            }
+            return reader;
         }
+
     }
 }
 
