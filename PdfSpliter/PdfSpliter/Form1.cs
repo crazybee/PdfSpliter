@@ -69,69 +69,66 @@ namespace PdfSpliter
         {
             // Get a fresh copy of the sample PDF file
             var filename = inputfilepath.Text;
-            PdfReader reader = null;
-            string name = Path.GetFileNameWithoutExtension(filename);
+            var name = Path.GetFileNameWithoutExtension(filename);
             if (string.IsNullOrEmpty(filename))
             {
                 outputinformation.Text = @"input file name is empty";
                 return;
             }
-            string outFolder = Path.GetDirectoryName(filename);
-            if (outFolder != null)
+            var outFolder = Path.GetDirectoryName(filename);
+            if (outFolder == null) return;
+            var outputFolder = Path.Combine(outFolder, name);
+            if (!Directory.Exists(outputFolder))
             {
-                var outputFolder = Path.Combine(outFolder, name);
-                if (!Directory.Exists(outputFolder))
-                {
-                    Directory.CreateDirectory(outputFolder);
-                }
-
-                try
-                {
-                    var total = GetPageCount(filename);
-                    reader = new PdfReader(filename);
-                    reader.RemoveUsageRights();
-                    reader.RemoveUnusedObjects();
-                    reader.Tampered = true;
-                    if (reader.IsEncrypted())
-                    {
-                        reader = unlockPdf(reader);
-                    }
-                    var sourceDocument = new Document(reader.GetPageSizeWithRotation(1));
-                    for (int idx = 1; idx <= total; idx++)
-                    {
-
-                        var outputfilename = $"{name} - Page {idx}_tempfile.pdf";
-                        outputfilename = Path.Combine(outputFolder, outputfilename);
-                        var pdfCopyProvider = new PdfCopy(sourceDocument,
-                            new FileStream(outputfilename, System.IO.FileMode.Create));
-                        sourceDocument.Open();
-                        var importedPage = pdfCopyProvider.GetImportedPage(reader, idx);
-                        pdfCopyProvider.AddPage(importedPage);
-                        progress?.Report((idx) * 100 / total);
-                    }
-                    sourceDocument.Close();
-                    reader.Close();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.Message);
-                    outputinformation.Text = @"Exception throws";
-                    throw;
-                }
-
-                outputfolder = outputFolder;
+                Directory.CreateDirectory(outputFolder);
             }
+
+            try
+            {
+                var total = GetPageCount(filename);
+                var reader = new PdfReader(filename);
+                reader.RemoveUsageRights();
+                reader.RemoveUnusedObjects();
+                reader.Tampered = true;
+                if (reader.IsEncrypted())
+                {
+                    reader = UnlockPdf(reader);
+                }
+                var sourceDocument = new Document(reader.GetPageSizeWithRotation(1));
+                for (int idx = 1; idx <= total; idx++)
+                {
+
+                    var outputfilename = $"{name} - Page {idx}_tempfile.pdf";
+                    outputfilename = Path.Combine(outputFolder, outputfilename);
+                    var pdfCopyProvider = new PdfCopy(sourceDocument,
+                        new FileStream(outputfilename, System.IO.FileMode.Create));
+                    sourceDocument.Open();
+                    var importedPage = pdfCopyProvider.GetImportedPage(reader, idx);
+                    pdfCopyProvider.AddPage(importedPage);
+                    progress?.Report((idx) * 100 / total);
+                }
+                sourceDocument.Close();
+                reader.Close();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                outputinformation.Text = @"Exception throws";
+                throw;
+            }
+
+            outputfolder = outputFolder;
         }
 
         private static int GetPageCount(string path)
         {
-            PdfReader pdfReader = new PdfReader(path);
+            var pdfReader = new PdfReader(path);
             return pdfReader.NumberOfPages;
         }
 
         private static void Showoutput(string outputFolder)
         {
-            OpenFileDialog outputDialog = new OpenFileDialog();
+            var outputDialog = new OpenFileDialog();
             outputDialog.InitialDirectory = outputFolder;
             outputDialog.ShowDialog();
         }
@@ -139,15 +136,15 @@ namespace PdfSpliter
         //private void progressBar1_Click(object sender, EventArgs e)
         //{
         //}
-        private static PdfReader unlockPdf(PdfReader reader)
+        private static PdfReader UnlockPdf(PdfReader reader)
         {
             if (reader == null)
-                return reader;
+                return null;
             try
             {
                 //var propertyInfo = reader.GetType().GetProperty("encrypted", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
                 //propertyInfo.SetValue(reader, false, null);
-                FieldInfo info = reader.GetType().GetTypeInfo().GetField("unethicalreading");
+                var info = reader.GetType().GetTypeInfo().GetField("unethicalreading");
                 info.SetValue(reader, true);
 
             }
